@@ -4,6 +4,7 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const socketPath = '/var/apps/test/target/gateway.sock';
+const BASE_PATH = '/app/test';
 
 // 启动前清理旧的 Socket 文件
 if (fs.existsSync(socketPath)) {
@@ -14,34 +15,46 @@ if (fs.existsSync(socketPath)) {
 
 const server = http.createServer((req, res) => {
     // 解析 URL
-    const parsedUrl = new URL(request.url, 'http://localhost');
+    const parsedUrl = new URL(req.url, 'http://localhost');
     let pathname;
     try {
         pathname = decodeURIComponent(parsedUrl.pathname);
     } catch (e) {
-        response.writeHead(400, { 'Content-Type': 'application/json' });
-        response.end(JSON.stringify({ error: 'URL解码失败' }));
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'URL解码失败' }));
+        return;
+    }
+
+    // 路径规范化
+    if (pathname === BASE_PATH) {
+        console.log(`[issampro] 重定向: ${pathname} -> ${BASE_PATH}/`);
+        res.writeHead(301, { 'Location': BASE_PATH + '/' });
+        res.end();
         return;
     }
 
     console.log(`[issampro] 收到请求: ${pathname}`);
 
 
-    // // 如果访问的是根路径，返回 HTML 文件
-    // if (req.url === '/app/test' || req.url === '/app/test/') {
-    //     fs.readFile(path.join(__dirname, '../www/index.html'), (err, data) => {
-    //         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    //         res.end(data);
-    //     });
-    // } 
-    // // 如果访问的是 JS 文件
-    // else if (req.url === '/app/test/js/client.js') {
-    //     fs.readFile(path.join(__dirname, '../www/js/client.js'), (err, data) => {
-    //         res.writeHead(200, { 'Content-Type': 'application/javascript' });
-    //         res.end(data);
-    //     });
-    // }
+    // 如果访问的是根路径，返回 HTML 文件
+    if (pathname === '/app/test/') {
+        fs.readFile(path.join(__dirname, '../www/index.html'), (err, data) => {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(data);
+        });
+    } 
+    // 如果访问的是 JS 文件
+    else if (req.url === '/app/test/js/client.js') {
+        fs.readFile(path.join(__dirname, '../www/js/client.js'), (err, data) => {
+            res.writeHead(200, { 'Content-Type': 'application/javascript' });
+            res.end(data);
+        });
+    }
+
+
+    
 });
+
 
 
 
