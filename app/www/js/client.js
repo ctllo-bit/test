@@ -1,9 +1,9 @@
 const output = document.getElementById('output');
-console.log("AAAAAAAAAA111wwwaaaaaaaaaaaaaaaaaaaaaaaaaaaAAAAAAAAAAA");
+console.log("bbbbbbbbfgdfgdfgfdgfd");
 
 // 按照 fnOS 网关规范拼接地址
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-const wsUrl = `${wsProtocol}//${window.location.host}/app/test-app/ws`;
+const wsUrl = `${wsProtocol}//${window.location.host}/app/test/ws`;
 
 const socket = new WebSocket(wsUrl);
 

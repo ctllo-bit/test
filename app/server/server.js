@@ -75,11 +75,19 @@ const server = http.createServer((req, res) => {
 // 4. 处理 WebSocket (可选)
 const wss = new WebSocket.Server({ noServer: true });
 server.on('upgrade', (request, socket, head) => {
-    // 可以在这里根据 request.url 判断是否是 /ws 路径
-    wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-    });
+    console.log(`[WebSocket] 收到升级请求路径: ${request.url}`);
+
+    // 检查路径是否匹配你的网关前缀 + /ws
+    if (request.url.includes('/ws')) {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+        });
+    } else {
+        console.log("[WebSocket] 路径不匹配，销毁连接");
+        socket.destroy();
+    }
 });
+
 
 // 5. 监听 Socket 文件
 server.listen(socketPath, () => {
@@ -87,7 +95,3 @@ server.listen(socketPath, () => {
     // 必须修改权限，否则网关（Nginx等）可能没权限读写这个 sock
     fs.chmodSync(socketPath, '0666'); 
 });
-
-
-
-
