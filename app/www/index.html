@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 客户端</title>
+</head>
+<body>
+    <h1>WebSocket 测试</h1>
+    <div id="output">正在连接...</div>
+
+
+    <!-- 修改前：用req.url === '/app/test/js/client.js' -->
+    <script src="./js/client.js"></script>
+
+    <!-- 修改后：直接对应到网关前缀下的路径，用req.url === '/app/test/client.js' -->
+    <!-- <script src="/app/test/client.js"></script> -->
+
+</body>
+</html>
