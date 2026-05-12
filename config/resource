@@ -1,0 +1,28 @@
+{
+    "data-share":
+    {
+        "shares":
+        [
+            {
+                "name": "test",
+                "permission":
+                {
+                    "rw":
+                    [
+                        "test"
+                    ]
+                }
+            },
+            {
+                "name": "test/data",
+                "permission":
+                {
+                    "rw":
+                    [
+                        "test"
+                    ]
+                }
+            }
+        ]
+    }
+}

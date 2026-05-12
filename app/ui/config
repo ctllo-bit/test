@@ -1,0 +1,14 @@
+{
+    ".url": {
+        "test.Application": {
+            "title": "{display_name}",
+            "icon": "images/icon_{0}.png",
+            "type": "url",
+            "protocol": "",
+            "gatewayPrefix": "/app/test",
+            "gatewaySocket": "gateway.sock",
+            "url": "/app/test",
+            "allUsers": false
+        }
+    }
+}
