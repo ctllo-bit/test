@@ -5,10 +5,21 @@ const WebSocket = require('ws');
 
 const socketPath = '/var/apps/test/target/gateway.sock';
 const BASE_PATH = '/app/test';
+const WEB_ROOT = path.join(__dirname, '../www'); // 统一静态资源根目录
 
 // 启动前清理旧的 Socket 文件
 if (fs.existsSync(socketPath)) {
     fs.unlinkSync(socketPath);
+}
+
+// 从网关获取用户信息
+function getGatewayUser(req) {
+    const user = {
+        uid: req.headers["x-trim-uid"] || '',             // 用户唯一 ID
+        username: req.headers["x-trim-username"] || '',   // 用户名
+        isAdmin: req.headers["x-trim-isadmin"] === "true" // 是否是管理员
+    };
+    return user;
 }
 
 
@@ -32,31 +43,147 @@ const server = http.createServer((req, res) => {
         res.end();
         return;
     }
+    
 
     console.log(`[issampro] 收到请求: ${pathname}`);
 
+    // 2. 识别并处理静态资源请求
+    if (pathname.startsWith(BASE_PATH)) {
+        // 裁剪路径：/app/test/js/client.js -> /js/client.js
+        let relativePath = pathname.substring(BASE_PATH.length);
+        
+        // 默认指向 index.html
+        if (relativePath === '/' || relativePath === '') {
+            relativePath = '/index.html';
+        }
 
-    // 如果访问的是根路径，返回 HTML 文件
-    if (pathname === '/app/test/') {
-        fs.readFile(path.join(__dirname, '../www/index.html'), (err, data) => {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(data);
-        });
-    } 
-    // 如果访问的是 JS 文件
-    else if (req.url === '/app/test/js/client.js') {
-        fs.readFile(path.join(__dirname, '../www/js/client.js'), (err, data) => {
-            res.writeHead(200, { 'Content-Type': 'application/javascript' });
-            res.end(data);
-        });
+        // 调用通用处理函数
+        serveStaticFile(res, relativePath);
+    } else {
+        res.writeHead(404);
+        res.end('Not Found');
     }
-
 
     
 });
 
 
 
+
+/**
+ * ============================================================
+ * 模块六：静态文件服务
+ * ============================================================
+ * 说明：
+ * - URL 解码（支持中文文件名）
+ * - 根路径 / 返回 index.html
+ * - 调用 isPathSafe 检查路径安全
+ */
+const MIME_TYPES = {
+	".html": "text/html; charset=UTF-8",
+	".htm":  "text/html; charset=UTF-8",
+	".css":  "text/css; charset=UTF-8",
+	".js":   "application/javascript; charset=UTF-8",
+    '.json': 'application/json; charset=UTF-8',
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif":  "image/gif",
+    '.svg': 'image/svg+xml',
+	".ico":  "image/x-icon",
+	".txt":  "text/plain; charset=UTF-8",
+}
+
+
+function serveStaticFile(res, relativePath) {
+    const filePath = path.join(WEB_ROOT, relativePath);
+
+    // // 安全检查：防止 ../ 越权访问
+    // if (!isPathSafe(filePath, WEB_ROOT)) {
+    //     res.writeHead(403);
+    //     return res.end('Forbidden');
+    // }
+
+    console.log(`[issampro] UUUUUUUUUUUUU: ${filePath}`);
+
+    // 读取并返回
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            console.error(`[Error] 无法读取文件: ${filePath}`);
+            res.writeHead(404);
+            return res.end('File Not Found');
+        }
+
+        // 自动识别 Content-Type
+        const ext = path.extname(filePath).toLowerCase();
+        const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(data);
+    });
+
+
+
+
+
+
+    // 
+    // const decodedPathname = decodeURIComponent(pathname);
+    // console.log(`[issampro] KKKKKKKKKKKKKKKKK: ${decodedPathname}`);
+
+
+    // // 如果访问的是根路径，返回 HTML 文件
+    // if (pathname === '/app/test/') {
+    //     fs.readFile(path.join(__dirname, '../www/index.html'), (err, data) => {
+    //         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    //         res.end(data);
+    //     });
+    // } 
+    // // 如果访问的是 JS 文件
+    // else if (req.url === '/app/test/js/client.js') {
+    //     fs.readFile(path.join(__dirname, '../www/js/client.js'), (err, data) => {
+    //         res.writeHead(200, { 'Content-Type': 'application/javascript' });
+    //         res.end(data);
+    //     });
+    // }
+
+
+
+
+
+    // 
+    // let filePath = path.join(__dirname, decodedPathname === '/' ? 'index.html' : decodedPathname);
+
+    // const baseDir = __dirname;
+    // if (!isPathSafe(filePath, baseDir)) {
+    //     response.writeHead(403, { 'Content-Type': 'application/json' });
+    //     response.end(JSON.stringify({ error: '访问被拒绝' }));
+    //     return;
+    // }
+
+    // if (!fs.existsSync(filePath)) {
+    //     response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    //     response.end('文件不存在');
+    //     return;
+    // }
+
+    // const stat = fs.statSync(filePath);
+    // if (stat.isDirectory()) {
+    //     response.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    //     response.end('禁止访问目录');
+    //     return;
+    // }
+
+    // const ext = path.extname(filePath).toLowerCase();
+    // const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    // const content = fs.readFileSync(filePath);
+
+    // response.writeHead(200, {
+    //     'Content-Type': contentType,
+    //     'Content-Length': content.length
+    // });
+    // response.end(content);
+}
 
 
 
