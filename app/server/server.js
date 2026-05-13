@@ -22,6 +22,12 @@ function getGatewayUser(req) {
     return user;
 }
 
+// 路径安全检查
+function isPathSafe(filePath, baseDir) {
+    const relative = path.relative(baseDir, filePath);
+    // 确保解析后的路径仍在 baseDir 目录下，防止 ../../ 攻击
+    return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
 
 
 const server = http.createServer((req, res) => {
@@ -98,13 +104,15 @@ const MIME_TYPES = {
 function serveStaticFile(res, relativePath) {
     const filePath = path.join(WEB_ROOT, relativePath);
 
-    // // 安全检查：防止 ../ 越权访问
-    // if (!isPathSafe(filePath, WEB_ROOT)) {
-    //     res.writeHead(403);
-    //     return res.end('Forbidden');
-    // }
+    // 检查安全性和存在性，防止 ../ 越权访问
+    if (!isPathSafe(filePath, WEB_ROOT)) {
+        console.error(`[issampro] 安全拦截: 尝试访问范围外路径 ${filePath}`);
+        response.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+        response.end('禁止访问');
+        return;
+    }
 
-    console.log(`[issampro] UUUUUUUUUUUUU: ${filePath}`);
+    console.log(`[issampro] 尝试读取文件: ${filePath}`);
 
     // 读取并返回
     fs.readFile(filePath, (err, data) => {
@@ -121,92 +129,18 @@ function serveStaticFile(res, relativePath) {
         res.writeHead(200, { 'Content-Type': contentType });
         res.end(data);
     });
-
-
-
-
-
-
-    // 
-    // const decodedPathname = decodeURIComponent(pathname);
-    // console.log(`[issampro] KKKKKKKKKKKKKKKKK: ${decodedPathname}`);
-
-
-    // // 如果访问的是根路径，返回 HTML 文件
-    // if (pathname === '/app/test/') {
-    //     fs.readFile(path.join(__dirname, '../www/index.html'), (err, data) => {
-    //         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    //         res.end(data);
-    //     });
-    // } 
-    // // 如果访问的是 JS 文件
-    // else if (req.url === '/app/test/js/client.js') {
-    //     fs.readFile(path.join(__dirname, '../www/js/client.js'), (err, data) => {
-    //         res.writeHead(200, { 'Content-Type': 'application/javascript' });
-    //         res.end(data);
-    //     });
-    // }
-
-
-
-
-
-    // 
-    // let filePath = path.join(__dirname, decodedPathname === '/' ? 'index.html' : decodedPathname);
-
-    // const baseDir = __dirname;
-    // if (!isPathSafe(filePath, baseDir)) {
-    //     response.writeHead(403, { 'Content-Type': 'application/json' });
-    //     response.end(JSON.stringify({ error: '访问被拒绝' }));
-    //     return;
-    // }
-
-    // if (!fs.existsSync(filePath)) {
-    //     response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    //     response.end('文件不存在');
-    //     return;
-    // }
-
-    // const stat = fs.statSync(filePath);
-    // if (stat.isDirectory()) {
-    //     response.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-    //     response.end('禁止访问目录');
-    //     return;
-    // }
-
-    // const ext = path.extname(filePath).toLowerCase();
-    // const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    // const content = fs.readFileSync(filePath);
-
-    // response.writeHead(200, {
-    //     'Content-Type': contentType,
-    //     'Content-Length': content.length
-    // });
-    // response.end(content);
 }
 
-
-
-// const server = http.createServer((req, res) => {
-//     // 3. 获取网关透传的用户信息
-//     const user = {
-//         uid: req.headers["x-trim-uid"],
-//         isAdmin: req.headers["x-trim-isadmin"] === "true",
-//         username: req.headers["x-trim-username"]
-//     };
-
-//     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-//     res.end(`你好 ${user.username}，你的 UID 是 ${user.uid}`);
-// });
-
-// 4. 处理 WebSocket (可选)
+//处理 WebSocket (可选)
 const wss = new WebSocket.Server({ noServer: true });
 server.on('upgrade', (request, socket, head) => {
-    console.log(`[WebSocket] 收到升级请求路径: ${request.url}`);
+    const upPath = new URL(request.url, 'http://localhost').pathname;
 
-    // 检查路径是否匹配你的网关前缀 + /ws
-    if (request.url.includes('/ws')) {
+    // 只有路径是以 /ws 结尾的才处理
+    if (upPath.endsWith('/ws')) {
         wss.handleUpgrade(request, socket, head, (ws) => {
+            // 这里可以顺便把用户信息绑定了
+            ws.uid = request.headers['x-trim-uid'] || 'unknown';
             wss.emit('connection', ws, request);
         });
     } else {
@@ -214,6 +148,8 @@ server.on('upgrade', (request, socket, head) => {
         socket.destroy();
     }
 });
+
+
 
 
 // 5. 监听 Socket 文件
