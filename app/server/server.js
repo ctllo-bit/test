@@ -93,8 +93,8 @@ function serveStaticFile(res, relativePath) {
     // 检查安全性和存在性，防止 ../ 越权访问
     if (!isPathSafe(filePath, WEB_ROOT)) {
         console.error(`[issampro] 安全拦截: 尝试访问范围外路径 ${filePath}`);
-        response.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-        response.end('禁止访问');
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('禁止访问');
         return;
     }
 
@@ -120,11 +120,13 @@ function serveStaticFile(res, relativePath) {
 // 处理 WebSocket (可选)
 const wss = new WebSocket.Server({ noServer: true });
 server.on('upgrade', (request, socket, head) => {
-    console.log(`[WebSocket] 收到升级请求路径: ${request.url}`);
+    // 打印端口号，看是不是同一个客户端发起的
+    console.log(`[WebSocket] 收到升级请求 | 路径: ${request.url} | 客户端端口: ${socket.remotePort}`);
 
     // 检查路径是否匹配你的网关前缀 + /ws
     if (request.url.includes('/ws')) {
         wss.handleUpgrade(request, socket, head, (ws) => {
+            console.log(`[WebSocket] 连接成功建立 (端口: ${socket.remotePort})`);
             wss.emit('connection', ws, request);
         });
     } else {
@@ -133,6 +135,31 @@ server.on('upgrade', (request, socket, head) => {
     }
 });
 
+wss.on('connection', (ws, request) => {
+    // 1. 获取通过网关透传的用户信息
+    const user = getGatewayUser(request);
+    console.log(`[WebSocket] 用户已连接: ${user.username || '未知'} (UID: ${user.uid})`);
+
+    // 发送欢迎消息
+    ws.send(`服务器已收到连接。你好, ${user.username || '访客'}`);
+
+    // 2. 监听消息
+    ws.on('message', (message) => {
+        console.log(`[WebSocket] 收到来自 ${user.username} 的消息: ${message}`);
+        // 回显消息
+        ws.send(`服务端回显: ${message}`);
+    });
+
+    // 3. 监听关闭
+    ws.on('close', () => {
+        console.log(`[WebSocket] 用户 ${user.username} 断开连接`);
+    });
+
+    // 4. 错误处理
+    ws.on('error', (err) => {
+        console.error(`[WebSocket] 发生错误:`, err);
+    });
+});
 
 // 监听 Socket 文件
 server.listen(socketPath, () => {
