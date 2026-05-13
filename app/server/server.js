@@ -7,6 +7,21 @@ const socketPath = '/var/apps/test/target/gateway.sock';
 const BASE_PATH = '/app/test';
 const WEB_ROOT = path.join(__dirname, '../www'); // 统一静态资源根目录
 
+const MIME_TYPES = {        // 静态文件类型
+	".html": "text/html; charset=UTF-8",
+	".htm":  "text/html; charset=UTF-8",
+	".css":  "text/css; charset=UTF-8",
+	".js":   "application/javascript; charset=UTF-8",
+    '.json': 'application/json; charset=UTF-8',
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif":  "image/gif",
+    '.svg': 'image/svg+xml',
+	".ico":  "image/x-icon",
+	".txt":  "text/plain; charset=UTF-8",
+}
+
 // 启动前清理旧的 Socket 文件
 if (fs.existsSync(socketPath)) {
     fs.unlinkSync(socketPath);
@@ -49,11 +64,9 @@ const server = http.createServer((req, res) => {
         res.end();
         return;
     }
-    
-
     console.log(`[issampro] 收到请求: ${pathname}`);
 
-    // 2. 识别并处理静态资源请求
+    // 识别并处理静态资源请求
     if (pathname.startsWith(BASE_PATH)) {
         // 裁剪路径：/app/test/js/client.js -> /js/client.js
         let relativePath = pathname.substring(BASE_PATH.length);
@@ -73,34 +86,7 @@ const server = http.createServer((req, res) => {
     
 });
 
-
-
-
-/**
- * ============================================================
- * 模块六：静态文件服务
- * ============================================================
- * 说明：
- * - URL 解码（支持中文文件名）
- * - 根路径 / 返回 index.html
- * - 调用 isPathSafe 检查路径安全
- */
-const MIME_TYPES = {
-	".html": "text/html; charset=UTF-8",
-	".htm":  "text/html; charset=UTF-8",
-	".css":  "text/css; charset=UTF-8",
-	".js":   "application/javascript; charset=UTF-8",
-    '.json': 'application/json; charset=UTF-8',
-	".png":  "image/png",
-	".jpg":  "image/jpeg",
-	".jpeg": "image/jpeg",
-	".gif":  "image/gif",
-    '.svg': 'image/svg+xml',
-	".ico":  "image/x-icon",
-	".txt":  "text/plain; charset=UTF-8",
-}
-
-
+// 静态文件服务
 function serveStaticFile(res, relativePath) {
     const filePath = path.join(WEB_ROOT, relativePath);
 
@@ -131,16 +117,14 @@ function serveStaticFile(res, relativePath) {
     });
 }
 
-//处理 WebSocket (可选)
+// 处理 WebSocket (可选)
 const wss = new WebSocket.Server({ noServer: true });
 server.on('upgrade', (request, socket, head) => {
-    const upPath = new URL(request.url, 'http://localhost').pathname;
+    console.log(`[WebSocket] 收到升级请求路径: ${request.url}`);
 
-    // 只有路径是以 /ws 结尾的才处理
-    if (upPath.endsWith('/ws')) {
+    // 检查路径是否匹配你的网关前缀 + /ws
+    if (request.url.includes('/ws')) {
         wss.handleUpgrade(request, socket, head, (ws) => {
-            // 这里可以顺便把用户信息绑定了
-            ws.uid = request.headers['x-trim-uid'] || 'unknown';
             wss.emit('connection', ws, request);
         });
     } else {
@@ -150,9 +134,7 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 
-
-
-// 5. 监听 Socket 文件
+// 监听 Socket 文件
 server.listen(socketPath, () => {
     console.log(`服务已通过 Socket 启动: ${socketPath}`);
     // 必须修改权限，否则网关（Nginx等）可能没权限读写这个 sock
